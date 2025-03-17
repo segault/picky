@@ -1,16 +1,26 @@
 // hello
 #include <SFML/Graphics.hpp>
 #include <iostream>
+#include <cstdlib>
+#include <ctime>
 
 #define BORDER 1
-#define PALETTE 3
+#define XPADDING 10
+#define YPADDING 5
+#define PALETTE 16
+#define BG_COLOR 1
+
+#define PALWIDTH (LEFTBAR-(XPADDING*2))
+#define PALHEIGHT (SCALE)
+
 #define SCALE 20
 #define XRES 32
 #define YRES 32
 
 #define LEFTBAR (100)
+#define TOPBAR (25)
 #define PICSTARTX (LEFTBAR)
-#define PICSTARTY (0)
+#define PICSTARTY (TOPBAR)
 #define PICWIDTH (SCALE*XRES)
 #define PICHEIGHT (SCALE*YRES)
 #define XCOORD(x) (PICSTARTX+(x*SCALE))
@@ -22,19 +32,37 @@
 void handle_event(sf::Event e);
 void draw_outline();
 void draw_squares();
+void draw_palette();
+int check_palette();
 
-sf::RenderWindow window(sf::VideoMode(WIDTH, HEIGHT), "picky", sf::Style::None);
+sf::RenderWindow window(sf::VideoMode(WIDTH, HEIGHT), "picky",
+        sf::Style::None);
 sf::Cursor arrow, cross;
 
-int grid[XRES][YRES] = {};
-sf::Vector2i gindex;
 sf::Color palette[PALETTE] = {
     sf::Color::Black,
     sf::Color::White,
-    sf::Color::Red,
 };
+int selected = 0;
 
-int main(void) {
+int grid[XRES][YRES] = {};
+sf::Vector2i pos;
+sf::Vector2i gindex;
+
+int holding = 0;
+
+
+void gen_palette() {
+    int r, g, b;
+    for (int i = 2; i < PALETTE; i++) {
+        r = rand()%255;
+        g = rand()%255;
+        b = rand()%255;
+        palette[i] = sf::Color(r, g, b);
+    }
+}
+
+void init() {
     if (!arrow.loadFromSystem(sf::Cursor::Arrow)) {
         fprintf(stderr, "Picky: error loading arrow cursor\n");
         exit(1);
@@ -45,7 +73,16 @@ int main(void) {
         exit(1);
     }
 
-    sf::Vector2i pos;
+    srand(time(NULL));
+    gen_palette();
+
+    for (int i = 0; i < XRES; i++)
+        for (int j = 0; j < YRES; j++)
+            grid[i][j] = BG_COLOR;
+}
+
+int main(void) {
+    init();
     while (window.isOpen()) {
         sf::Event event;
         while (window.pollEvent(event)) {
@@ -56,13 +93,7 @@ int main(void) {
         }
 
         window.clear();
-        // pic edge
-        sf::Vertex line[] = {
-            sf::Vertex(sf::Vector2f(PICSTARTX, PICSTARTY)),
-            sf::Vertex(sf::Vector2f(PICSTARTX, PICHEIGHT)),
-        };
-        window.draw(line, 2, sf::Lines);
-
+        draw_palette();
         draw_squares();
         draw_outline();
         window.display();
@@ -80,14 +111,87 @@ void handle_event(sf::Event e) {
         break;
         case sf::Event::MouseButtonPressed:
         {
-            if (grid[gindex.x][gindex.y] >= PALETTE-1)
-                grid[gindex.x][gindex.y] = 0;
+            if (pos.x > PICSTARTX && pos.y > PICSTARTY)
+                grid[gindex.x][gindex.y] = selected;
             else
-                grid[gindex.x][gindex.y]++;
+            {
+                int id = check_palette(); // checks pos vs palette
+                if (id >= 0) {
+                    selected = id;
+                } else {
+                    break;
+                }
+            }
         }
         break;
+        case sf::Event::MouseButtonReleased:
+            ;
+        break;
+        case sf::Event::MouseMoved:
+            ;
+        break;
+        case sf::Event::KeyPressed:
+        {
+            switch (e.key.code) {
+                case sf::Keyboard::R:
+                    gen_palette();
+                break;
+                case sf::Keyboard::Num1:
+                    selected = 0;
+                break;
+                case sf::Keyboard::Num2:
+                    selected = 1;
+                break;
+                case sf::Keyboard::Num3:
+                    selected = 2;
+                break;
+                case sf::Keyboard::Num4:
+                    selected = 3;
+                break;
+                case sf::Keyboard::Num5:
+                    selected = 4;
+                break;
+                default:
+                break;
+            }
+        }
         default:
             break;
+    }
+}
+
+int check_palette() {
+    for (int i = 0; i < PALETTE; i++) {
+        if ((pos.x > XPADDING && pos.x < (XPADDING+PALWIDTH)) &&
+                (pos.y > (TOPBAR+(i*(PALHEIGHT+YPADDING))) &&
+                 pos.y < (TOPBAR+(i*(PALHEIGHT+YPADDING))+PALHEIGHT))
+            )
+        {
+            return i;
+        }
+    }
+
+    return -1;
+}
+
+void draw_palette() {
+    int x = XPADDING;
+    int y = TOPBAR;
+
+    for (int i = 0; i < PALETTE; i++) {
+        if (i == selected) {
+            sf::RectangleShape rect(sf::Vector2f(XPADDING, PALHEIGHT));
+            rect.setPosition(0, y);
+            rect.setFillColor(sf::Color::White);
+            window.draw(rect);
+        }
+
+        sf::RectangleShape rect(sf::Vector2f(PALWIDTH, PALHEIGHT));
+        rect.setPosition(x, y);
+        rect.setFillColor(palette[i]);
+        window.draw(rect);
+
+        y += (PALHEIGHT + YPADDING);
     }
 }
 
@@ -97,16 +201,16 @@ void draw_outline() {
 
     window.setMouseCursor(arrow);
 
-    if (XCOORD(x) >= (PICSTARTX+PICWIDTH)) return;
-    if (YCOORD(y) >= (PICSTARTY+PICHEIGHT)) return;
-    if (XCOORD(x) < PICSTARTX) return;
-    if (YCOORD(y) < PICSTARTY) return;
+    if (pos.x >= (PICSTARTX+PICWIDTH)) return;
+    if (pos.y >= (PICSTARTY+PICHEIGHT)) return;
+    if (pos.x < PICSTARTX) return;
+    if (pos.y < PICSTARTY) return;
 
     window.setMouseCursor(cross);
 
     sf::RectangleShape rect(sf::Vector2f(SCALE, SCALE));
     rect.setPosition(XCOORD(x), YCOORD(y));
-    rect.setFillColor(sf::Color::White);
+    rect.setFillColor(palette[selected]);
     window.draw(rect);
 
     rect.setSize(sf::Vector2f(SCALE-(BORDER*2), SCALE-(BORDER*2)));
