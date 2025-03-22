@@ -111,7 +111,8 @@ void handle_event(sf::Event e) {
         break;
         case sf::Event::MouseButtonPressed:
         {
-            if (pos.x > PICSTARTX && pos.y > PICSTARTY)
+            holding = 1;
+            if ((pos.x > PICSTARTX && pos.y > PICSTARTY) && holding)
                 grid[gindex.x][gindex.y] = selected;
             else
             {
@@ -125,10 +126,11 @@ void handle_event(sf::Event e) {
         }
         break;
         case sf::Event::MouseButtonReleased:
-            ;
+            holding = 0;
         break;
         case sf::Event::MouseMoved:
-            ;
+            if (holding)
+                grid[gindex.x][gindex.y] = selected;
         break;
         case sf::Event::KeyPressed:
         {
